@@ -7,13 +7,13 @@ import (
 )
 
 type Processor interface {
-	Process(ctx context.Context, records []types.Record) ([]types.Record, error)
+	Process(ctx context.Context, records []types.PgStatRow) ([]types.PgStatRow, error)
 }
 
 type PassThroughProcessor struct{}
 
-func (PassThroughProcessor) Process(_ context.Context, records []types.Record) ([]types.Record, error) {
-	output := make([]types.Record, len(records))
+func (PassThroughProcessor) Process(_ context.Context, records []types.PgStatRow) ([]types.PgStatRow, error) {
+	output := make([]types.PgStatRow, len(records))
 	copy(output, records)
 	return output, nil
 }

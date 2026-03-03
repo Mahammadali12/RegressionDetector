@@ -13,13 +13,13 @@ import (
 
 func main() {
 	cfg := config.Default()
+	connStr := "postgres://postgres@localhost:5432/postgres?sslmode=disable"
 
 	collectorAgent := agent.New(
 		cfg,
-		source.NewStaticSource(nil),
+		source.NewPostgresSource(connStr),
 		processor.PassThroughProcessor{},
-		sink.LoggingSink{},
-	)
+		sink.LoggingSink{})
 
 	if err := collectorAgent.RunOnce(context.Background()); err != nil {
 		log.Fatalf("collector run failed: %v", err)
