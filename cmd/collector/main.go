@@ -13,7 +13,8 @@ import (
 
 func main() {
 	cfg := config.Default()
-	connStr := "postgres://postgres@localhost:5432/postgres?sslmode=disable"
+	// connStr := "postgres://postgres@localhost:5432/postgres?sslmode=disable"
+	connStr := "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable"
 
 	collectorAgent := agent.New(
 		cfg,
