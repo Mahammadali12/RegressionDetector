@@ -1,13 +1,37 @@
 package config
 
-import "time"
+import (
+	"os"
+	"time"
+	"fmt"
+	// "golang.org/x/tools/go/cfg"
+)
 
 type Config struct {
 	PollInterval time.Duration
+	ConnStr string
+	APIToken string
+	BackendURL string
 }
 
-func Default() Config {
-	return Config{
+func Load() (Config, error) {
+
+	cfg := Config{
 		PollInterval: 15 * time.Second,
+		ConnStr: os.Getenv("DRIFT_DETECTOR_CONN_STR"),
+		APIToken: os.Getenv("DRIFT_DETECTOR_API_TOKEN"),
+		BackendURL: os.Getenv("DRIFT_DETECTOR_BACKEND_URL"),
 	}
+
+	if cfg.ConnStr == "" {
+    	return Config{}, fmt.Errorf("DRIFT_DETECTOR_CONN_STR is required")
+	}
+	if cfg.APIToken == "" {
+	    return Config{}, fmt.Errorf("DRIFT_DETECTOR_API_TOKEN is required")
+	}
+	if cfg.BackendURL == "" {
+	    return Config{}, fmt.Errorf("DRIFT_DETECTOR_BACKEND_URL is required")
+	}
+
+	return cfg,nil
 }

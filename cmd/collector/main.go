@@ -13,14 +13,18 @@ import (
 )
 
 func main() {
-	cfg := config.Default()
+	cfg,err := config.Load()
+
+	if err != nil {
+		log.Fatalf("Failed to load config: %v",err)
+	}
 	// connStr := "postgres://postgres@localhost:5432/postgres?sslmode=disable"
-	connStr := "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable"
+	// connStr := "postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable"
 
 	collectorAgent := agent.New(
 		cfg,
-		source.NewPostgresSource(connStr),
-		processor.PassThroughProcessor{},
+		source.NewPostgresSource(cfg.ConnStr),
+		processor.RedactingProcessor{},
 		sink.LoggingSink{})
 
 	if err := collectorAgent.Run(context.Background()); err != nil && !errors.Is(err, context.Canceled) {

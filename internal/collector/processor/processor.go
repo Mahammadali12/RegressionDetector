@@ -2,7 +2,6 @@ package processor
 
 import (
 	"context"
-
 	"regressiondetector/internal/collector/types"
 )
 
@@ -17,5 +16,4 @@ func (PassThroughProcessor) Process(_ context.Context, records []types.PgStatRow
 	copy(output, records)
 	return output, nil
 }
-
 
