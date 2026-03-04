@@ -17,3 +17,5 @@ func (PassThroughProcessor) Process(_ context.Context, records []types.PgStatRow
 	copy(output, records)
 	return output, nil
 }
+
+

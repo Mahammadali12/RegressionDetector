@@ -70,9 +70,9 @@ func (a *Agent) Run(ctx context.Context) error {
 			return runCtx.Err()
 		case <-ticker.C:
 			if err := a.RunOnce(runCtx); err != nil {
-				if errors.Is(err, context.Canceled) {
-					continue
-				}
+					if errors.Is(err, context.Canceled) {
+						continue
+					}
 				log.Printf("collector cycle failed: %v", err)
 			}
 		}

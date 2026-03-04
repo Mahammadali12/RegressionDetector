@@ -20,8 +20,15 @@ func (LoggingSink) Write(_ context.Context, records []types.PgStatRow) error {
 	    limit = len(records)
 	}
 
+	
+
 	for i := 0; i < limit; i++ {
-		log.Printf("MeanExecTime: %f QueryID: %d Time: %s",records[i].MeanExecTime, records[i].QueryID, records[i].SnapshotTime)
+		
+		queryText := "[redacted]"
+		if records[i].Query != nil {
+		    queryText = *records[i].Query;
+		}
+		log.Printf("MeanExecTime: %f QueryID: %d Query: %s  Time: %s",records[i].MeanExecTime, records[i].QueryID, queryText, records[i].SnapshotTime)
 	}
 
 	log.Printf("collector sink received %d records", len(records))

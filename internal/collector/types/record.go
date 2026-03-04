@@ -5,7 +5,7 @@ import "time"
 type PgStatRow struct {
     QueryID         int64
     SnapshotTime    time.Time
-    Query           string
+    Query           *string
     Calls           int64
     TotalExecTime   float64
     MeanExecTime    float64
