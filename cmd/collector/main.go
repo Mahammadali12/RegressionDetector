@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log"
 
 	"regressiondetector/internal/collector/agent"
@@ -22,7 +23,7 @@ func main() {
 		processor.PassThroughProcessor{},
 		sink.LoggingSink{})
 
-	if err := collectorAgent.RunOnce(context.Background()); err != nil {
+	if err := collectorAgent.Run(context.Background()); err != nil && !errors.Is(err, context.Canceled) {
 		log.Fatalf("collector run failed: %v", err)
 	}
 }

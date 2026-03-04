@@ -2,6 +2,11 @@ package agent
 
 import (
 	"context"
+	"errors"
+	"log"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"regressiondetector/internal/collector/config"
 	"regressiondetector/internal/collector/processor"
@@ -47,4 +52,29 @@ func (a *Agent) RunOnce(ctx context.Context) error {
 
 	_ = a.config
 	return nil
+}
+
+func (a *Agent) Run(ctx context.Context) error {
+	runCtx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	ticker := time.NewTicker(a.config.PollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-runCtx.Done():
+			if errors.Is(runCtx.Err(), context.Canceled) {
+				return nil
+			}
+			return runCtx.Err()
+		case <-ticker.C:
+			if err := a.RunOnce(runCtx); err != nil {
+				if errors.Is(err, context.Canceled) {
+					continue
+				}
+				log.Printf("collector cycle failed: %v", err)
+			}
+		}
+	}
 }
