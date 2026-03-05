@@ -7,9 +7,10 @@ import (
 	"io"
 	"net/http"
 	"regressiondetector/internal/collector/types"
+	"regressiondetector/store"
 )
 
-func HandleIngest(token string) http.HandlerFunc{
+func HandleIngest(token string, store* store.Store) http.HandlerFunc{
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		if r.Method != "POST"{
@@ -53,6 +54,12 @@ func HandleIngest(token string) http.HandlerFunc{
 		if err := json.Unmarshal(data, &records); err != nil {
 		    http.Error(w, "failed to parse payload", http.StatusBadRequest)
 		    return
+		}	
+
+		err = store.Save(r.Context(),records)
+		if err != nil {
+		    http.Error(w, "failed to save records", http.StatusBadRequest)			
+			return 
 		}
 
 		

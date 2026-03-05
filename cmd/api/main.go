@@ -1,10 +1,14 @@
 package main
 
 import (
+	"context"
 	"log"
 	"net/http"
 	"regressiondetector/api"
 	"regressiondetector/internal/collector/config"
+	"regressiondetector/store"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main(){
@@ -14,8 +18,16 @@ func main(){
 		log.Fatalf("Error loading config: %v",err)
 	}
 
+	pool,err := pgxpool.New(context.Background(),cfg.ConnStr)
+	if err != nil {
+		log.Fatalf("Failed to create pool: %v",err)
+	}
 
-	http.HandleFunc("/api/v1/agent/payload",api.HandleIngest(cfg.APIToken))
+	s := store.NewStore(pool)
+	
+
+
+	http.HandleFunc("/api/v1/agent/payload",api.HandleIngest(cfg.APIToken,s))
 	log.Println("backend listening on :8080")
 	log.Fatal(http.ListenAndServe("localhost:8080",nil))
 
