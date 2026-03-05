@@ -25,7 +25,7 @@ func main() {
 		cfg,
 		source.NewPostgresSource(cfg.ConnStr),
 		processor.RedactingProcessor{},
-		sink.LoggingSink{})
+		sink.NewHttpSink(cfg.BackendURL,cfg.APIToken))
 
 	if err := collectorAgent.Run(context.Background()); err != nil && !errors.Is(err, context.Canceled) {
 		log.Fatalf("collector run failed: %v", err)
