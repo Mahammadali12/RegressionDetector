@@ -48,8 +48,17 @@ func(d* Detector) Analyze(ctx context.Context, row types.PgStatRow) error{
 		return fmt.Errorf("failed to load baseline: %w", err)
 	}
 
-	if baseline.Stddev == 0 {
+	if baseline.Stddev == 0 && baseline.SampleCount < 2 {
 		// not enough data to compute z-score yet, update baseline and return
+		newMean := (baseline.Mean + row.MeanExecTime) / 2
+		baseline.Mean = newMean
+		baseline.SampleCount += 1
+		baseline.LastSeen = row.SnapshotTime
+
+		err = d.updateBaseLine(ctx, &baseline)
+		if err != nil {
+			return fmt.Errorf("failed to update baseline: %w", err)
+		}		
 
 		return nil
 	}
@@ -68,8 +77,36 @@ func(d* Detector) Analyze(ctx context.Context, row types.PgStatRow) error{
 			return  fmt.Errorf("error inserting anomaly record: %w",err)
 		}
 
-		newMean := (())
+
+	}
+
+	newMean := (baseline.Mean*float64(baseline.SampleCount) + row.MeanExecTime) / (float64(baseline.SampleCount)+1)
+	newStdDev := 0.0
+
+	if baseline.SampleCount > 1 {
+		newStdDev = ((float64(baseline.SampleCount-1)*baseline.Stddev*baseline.Stddev + (row.MeanExecTime-baseline.Mean)*(row.MeanExecTime-newMean)) / float64(baseline.SampleCount))
+	}
+	
+	baseline.Mean = newMean
+	baseline.Stddev = newStdDev
+	baseline.SampleCount += 1
+	baseline.LastSeen = row.SnapshotTime
+
+	err = d.updateBaseLine(ctx, &baseline)
+	if err != nil {
+		return fmt.Errorf("failed to update baseline after anomaly: %w", err)
 	}
 
 	return nil
+}
+
+func(d* Detector) updateBaseLine(ctx context.Context, baseline *Baseline) error {
+	_, err := d.pool.Exec(ctx,
+	`UPDATE baseline_stats SET mean = $1, stddev = $2, sample_count = $3, last_seen = $4 WHERE query_id = $5`,
+	baseline.Mean, baseline.Stddev, baseline.SampleCount, baseline.LastSeen, baseline.QueryID)
+	if err != nil {
+		return fmt.Errorf("failed to update baseline: %w", err)
+	}
+	return nil
+
 }

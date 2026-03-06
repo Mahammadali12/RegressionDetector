@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"regressiondetector/api"
+	"regressiondetector/engine"
 	"regressiondetector/internal/collector/config"
 	"regressiondetector/store"
 
@@ -24,10 +25,11 @@ func main(){
 	}
 
 	s := store.NewStore(pool)
+	d := engine.NewDetector(pool)
 	
 
 
-	http.HandleFunc("/api/v1/agent/payload",api.HandleIngest(cfg.APIToken,s))
+	http.HandleFunc("/api/v1/agent/payload",api.HandleIngest(cfg.APIToken,s,d))
 	log.Println("backend listening on :8080")
 	log.Fatal(http.ListenAndServe("localhost:8080",nil))
 

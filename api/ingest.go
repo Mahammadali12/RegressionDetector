@@ -5,12 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"regressiondetector/engine"
 	"regressiondetector/internal/collector/types"
 	"regressiondetector/store"
 )
 
-func HandleIngest(token string, store* store.Store) http.HandlerFunc{
+func HandleIngest(token string, store* store.Store, detector* engine.Detector) http.HandlerFunc{
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		if r.Method != "POST"{
@@ -62,6 +64,11 @@ func HandleIngest(token string, store* store.Store) http.HandlerFunc{
 			return 
 		}
 
+		for _, record := range records {
+    		if err := detector.Analyze(r.Context(), record); err != nil {
+    		    log.Printf("analysis failed for query %d: %v", record.QueryID, err)
+    		}
+		}
 		
 
 	}
