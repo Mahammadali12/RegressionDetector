@@ -57,4 +57,4 @@ func (s *PostgresSource) Collect(ctx context.Context) ([]types.PgStatRow, error)
 		result = append(result, r)
 	}
 	return result, rows.Err()
-}
+}	
