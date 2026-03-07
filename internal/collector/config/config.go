@@ -17,7 +17,7 @@ type Config struct {
 func Load() (Config, error) {
 
 	cfg := Config{
-		PollInterval: 15 * time.Second,
+		PollInterval: 10 * time.Second,
 		ConnStr: os.Getenv("DRIFT_DETECTOR_CONN_STR"),
 		APIToken: os.Getenv("DRIFT_DETECTOR_API_TOKEN"),
 		BackendURL: os.Getenv("DRIFT_DETECTOR_BACKEND_URL"),

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"regressiondetector/internal/collector/types"
 
 	"github.com/jackc/pgx/v5"
@@ -19,6 +20,7 @@ func NewDetector(p* pgxpool.Pool) *Detector {
 }
 
 func(d* Detector) Analyze(ctx context.Context, row types.PgStatRow) error{
+	fmt.Printf("Analyzing query %d with mean exec time %f\n", row.QueryID, row.MeanExecTime)
 
 	queryId := row.QueryID
 
@@ -48,25 +50,34 @@ func(d* Detector) Analyze(ctx context.Context, row types.PgStatRow) error{
 		return fmt.Errorf("failed to load baseline: %w", err)
 	}
 
-	if baseline.Stddev == 0 && baseline.SampleCount < 2 {
-		// not enough data to compute z-score yet, update baseline and return
-		newMean := (baseline.Mean + row.MeanExecTime) / 2
-		baseline.Mean = newMean
-		baseline.SampleCount += 1
-		baseline.LastSeen = row.SnapshotTime
+	newMean := (baseline.Mean*float64(baseline.SampleCount) + row.MeanExecTime) / (float64(baseline.SampleCount)+1)
+	newVariance := 0.0
 
-		err = d.updateBaseLine(ctx, &baseline)
-		if err != nil {
-			return fmt.Errorf("failed to update baseline: %w", err)
-		}		
+	newStdDev := 0.0
+	if baseline.SampleCount >= 1 {
+		newVariance = (float64(baseline.SampleCount-1)*baseline.Stddev*baseline.Stddev +
+        (row.MeanExecTime-baseline.Mean)*(row.MeanExecTime-newMean)) / float64(baseline.SampleCount)
+	}
+	newStdDev = math.Sqrt(newVariance)
 
-		return nil
+	oldMean := baseline.Mean
+
+
+	baseline.Mean = newMean
+	baseline.Stddev = newStdDev
+	baseline.SampleCount += 1
+	baseline.LastSeen = row.SnapshotTime
+
+	if baseline.SampleCount < 3 || newStdDev < 0.001 {
+		return d.updateBaseLine(ctx, &baseline)
+		
 	}
 
-	Z := (row.MeanExecTime - baseline.Mean) / baseline.Stddev
-	absChange := row.MeanExecTime - baseline.Mean
-	percChange := absChange/baseline.Mean * 100
+	Z := (row.MeanExecTime - oldMean) / newStdDev
+	absChange := row.MeanExecTime - oldMean
+	percChange := absChange / oldMean * 100
 
+	
 	if( Z >= 3 && absChange > 50 && percChange > 30){
 		_, err := d.pool.Exec(ctx,
 		`INSERT INTO anomaly_records 
@@ -77,28 +88,9 @@ func(d* Detector) Analyze(ctx context.Context, row types.PgStatRow) error{
 			return  fmt.Errorf("error inserting anomaly record: %w",err)
 		}
 		fmt.Printf("Anomaly was inserted")
-
-
 	}
 
-	newMean := (baseline.Mean*float64(baseline.SampleCount) + row.MeanExecTime) / (float64(baseline.SampleCount)+1)
-	newStdDev := 0.0
-
-	if baseline.SampleCount > 1 {
-		newStdDev = ((float64(baseline.SampleCount-1)*baseline.Stddev*baseline.Stddev + (row.MeanExecTime-baseline.Mean)*(row.MeanExecTime-newMean)) / float64(baseline.SampleCount))
-	}
-	
-	baseline.Mean = newMean
-	baseline.Stddev = newStdDev
-	baseline.SampleCount += 1
-	baseline.LastSeen = row.SnapshotTime
-
-	err = d.updateBaseLine(ctx, &baseline)
-	if err != nil {
-		return fmt.Errorf("failed to update baseline after anomaly: %w", err)
-	}
-
-	return nil
+	return d.updateBaseLine(ctx, &baseline)
 }
 
 func(d* Detector) updateBaseLine(ctx context.Context, baseline *Baseline) error {
