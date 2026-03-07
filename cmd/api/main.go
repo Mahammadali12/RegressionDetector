@@ -31,6 +31,7 @@ func main(){
 
 	http.HandleFunc("/api/v1/agent/payload",api.HandleIngest(cfg.APIToken,s,d))
 	http.HandleFunc("/api/v1/anomalies",api.HandleGetAnomalies(s))
+	http.Handle("/", http.FileServer(http.Dir("ui")))
 	log.Println("backend listening on :8080")
 	log.Fatal(http.ListenAndServe("localhost:8080",nil))
 

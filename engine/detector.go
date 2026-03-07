@@ -94,8 +94,7 @@ func (d *Detector) Analyze(ctx context.Context, row types.PgStatRow) error {
 		}
 		fmt.Printf("Anomaly was inserted\n")
 	}
-
-	return d.updateBaseLine(ctx, &baseline)
+	return nil
 }
 
 func (d *Detector) updateBaseLine(ctx context.Context, baseline *Baseline) error {

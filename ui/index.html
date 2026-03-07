@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Drift Detector</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap');
+
+  :root {
+    --bg:        #0a0a0a;
+    --surface:   #111111;
+    --border:    #222222;
+    --accent:    #ff4d00;
+    --accent2:   #ffaa00;
+    --text:      #e8e8e8;
+    --muted:     #555555;
+    --ok:        #00cc66;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── header ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 18px 32px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .logo {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .status-pill {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    padding: 4px 10px;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+
+  .status-pill.live { border-color: var(--ok); color: var(--ok); }
+  .status-pill.error { border-color: var(--accent); color: var(--accent); }
+
+  /* ── main layout ── */
+  main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 40px 32px;
+  }
+
+  /* ── section label ── */
+  .section-label {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 16px;
+  }
+
+  /* ── stat row ── */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-bottom: 40px;
+  }
+
+  .stat {
+    background: var(--surface);
+    padding: 20px 24px;
+  }
+
+  .stat-value {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+
+  .stat-value.hot { color: var(--accent); }
+
+  .stat-label {
+    font-size: 12px;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+
+  /* ── chart panel ── */
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    margin-bottom: 32px;
+  }
+
+  .panel-header {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .panel-title {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text);
+  }
+
+  .panel-body {
+    padding: 24px;
+  }
+
+  .chart-wrap {
+    position: relative;
+    height: 260px;
+  }
+
+  /* ── table ── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+  }
+
+  thead th {
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--border);
+    transition: background 0.1s;
+    cursor: default;
+  }
+
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,77,0,0.04); }
+
+  tbody td {
+    padding: 11px 14px;
+    color: var(--text);
+  }
+
+  .z-high  { color: var(--accent); }
+  .z-med   { color: var(--accent2); }
+  .z-low   { color: var(--ok); }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 7px;
+    border-radius: 2px;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    background: rgba(255,77,0,0.12);
+    color: var(--accent);
+    border: 1px solid rgba(255,77,0,0.3);
+  }
+
+  /* ── empty / loading states ── */
+  .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.06em;
+  }
+
+  /* ── scanline overlay ── */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.07) 2px,
+      rgba(0,0,0,0.07) 4px
+    );
+    pointer-events: none;
+    z-index: 9999;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <span class="logo">Drift Detector</span>
+  <span class="status-pill" id="status-pill">connecting…</span>
+</header>
+
+<main>
+
+  <p class="section-label">Overview</p>
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-value" id="stat-total">—</div>
+      <div class="stat-label">Total anomalies detected</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value hot" id="stat-queries">—</div>
+      <div class="stat-label">Distinct query fingerprints</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" id="stat-latest">—</div>
+      <div class="stat-label">Most recent anomaly</div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Absolute change (ms) per anomaly event</span>
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--muted)">
+        one dot = one detected regression
+      </span>
+    </div>
+    <div class="panel-body">
+      <div class="chart-wrap">
+        <canvas id="chart"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Anomaly log</span>
+    </div>
+    <div id="table-container"></div>
+  </div>
+
+</main>
+
+<script>
+const API = '/api/v1/anomalies';
+
+const COLORS = [
+  '#ff4d00','#ffaa00','#00ccff','#cc44ff',
+  '#00cc66','#ff0066','#44aaff','#ffcc00',
+];
+
+function shortId(id) {
+  const s = String(id);
+  return s.slice(0, 6) + '…' + s.slice(-4);
+}
+
+function fmtTime(iso) {
+  const d = new Date(iso);
+  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function fmtDate(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+       + ' ' + fmtTime(iso);
+}
+
+function zClass(z) {
+  if (z > 100) return 'z-high';
+  if (z > 10)  return 'z-med';
+  return 'z-low';
+}
+
+let chartInstance = null;
+
+function buildChart(anomalies) {
+  const byQuery = {};
+  anomalies.forEach(a => {
+    const k = String(a.query_id);
+    if (!byQuery[k]) byQuery[k] = [];
+    byQuery[k].push(a);
+  });
+
+  const datasets = Object.entries(byQuery).map(([qid, rows], i) => ({
+    label: shortId(qid),
+    data: rows.map(r => ({
+      x: new Date(r.window_start).getTime(),
+      y: parseFloat(r.absolute_change.toFixed(3)),
+    })),
+    backgroundColor: COLORS[i % COLORS.length] + 'cc',
+    borderColor:     COLORS[i % COLORS.length],
+    pointRadius: 7,
+    pointHoverRadius: 10,
+    showLine: false,
+  }));
+
+  const ctx = document.getElementById('chart').getContext('2d');
+
+  if (chartInstance) chartInstance.destroy();
+
+  chartInstance = new Chart(ctx, {
+    type: 'scatter',
+    data: { datasets },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 600, easing: 'easeOutQuart' },
+      plugins: {
+        legend: {
+          labels: {
+            color: '#888',
+            font: { family: 'IBM Plex Mono', size: 11 },
+            boxWidth: 10,
+            padding: 16,
+          }
+        },
+        tooltip: {
+          backgroundColor: '#1a1a1a',
+          borderColor: '#333',
+          borderWidth: 1,
+          titleColor: '#ff4d00',
+          bodyColor: '#ccc',
+          titleFont: { family: 'IBM Plex Mono', size: 11 },
+          bodyFont:  { family: 'IBM Plex Mono', size: 11 },
+          callbacks: {
+            title: items => fmtTime(new Date(items[0].parsed.x).toISOString()),
+            label: item => ` +${item.parsed.y.toFixed(2)} ms  (${item.dataset.label})`,
+          }
+        }
+      },
+      scales: {
+        x: {
+          type: 'linear',
+          ticks: {
+            color: '#444',
+            font: { family: 'IBM Plex Mono', size: 10 },
+            callback: v => fmtTime(new Date(v).toISOString()),
+            maxTicksLimit: 8,
+          },
+          grid: { color: '#1a1a1a' },
+        },
+        y: {
+          ticks: {
+            color: '#444',
+            font: { family: 'IBM Plex Mono', size: 10 },
+            callback: v => v + ' ms',
+          },
+          grid: { color: '#1a1a1a' },
+          title: {
+            display: true,
+            text: 'absolute change (ms)',
+            color: '#444',
+            font: { family: 'IBM Plex Mono', size: 10 },
+          }
+        }
+      }
+    }
+  });
+}
+
+function buildTable(anomalies) {
+  const container = document.getElementById('table-container');
+
+  if (!anomalies.length) {
+    container.innerHTML = '<div class="empty">no anomalies detected yet</div>';
+    return;
+  }
+
+  const sorted = [...anomalies].sort(
+    (a, b) => new Date(b.window_start) - new Date(a.window_start)
+  );
+
+  const rows = sorted.map(a => `
+    <tr>
+      <td>${fmtDate(a.window_start)}</td>
+      <td style="color:var(--muted)">${shortId(String(a.query_id))}</td>
+      <td><span class="badge">+${a.absolute_change.toFixed(2)} ms</span></td>
+      <td class="${zClass(a.z_score)}">${a.z_score.toFixed(1)}</td>
+      <td style="color:var(--muted)">${a.baseline_mean.toFixed(3)} ms</td>
+      <td style="color:var(--muted)">mean_exec_time</td>
+    </tr>
+  `).join('');
+
+  container.innerHTML = `
+    <table>
+      <thead>
+        <tr>
+          <th>Detected at</th>
+          <th>Query ID</th>
+          <th>Change</th>
+          <th>Z-score</th>
+          <th>Baseline mean</th>
+          <th>Metric</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function updateStats(anomalies) {
+  const ids = new Set(anomalies.map(a => a.query_id));
+  const latest = anomalies.reduce((best, a) =>
+    !best || new Date(a.window_start) > new Date(best.window_start) ? a : best
+  , null);
+
+  document.getElementById('stat-total').textContent   = anomalies.length;
+  document.getElementById('stat-queries').textContent = ids.size;
+  document.getElementById('stat-latest').textContent  = latest
+    ? fmtTime(latest.window_start)
+    : '—';
+}
+
+async function load() {
+  const pill = document.getElementById('status-pill');
+  try {
+    const res  = await fetch(API);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    const anomalies = data.anomalies || [];
+
+    pill.textContent = 'live';
+    pill.className   = 'status-pill live';
+
+    updateStats(anomalies);
+
+    if (anomalies.length) {
+      buildChart(anomalies);
+    } else {
+      document.querySelector('.chart-wrap').innerHTML =
+        '<div class="empty">no anomalies to plot yet</div>';
+    }
+
+    buildTable(anomalies);
+
+  } catch (err) {
+    pill.textContent = 'error';
+    pill.className   = 'status-pill error';
+    console.error(err);
+    document.getElementById('table-container').innerHTML =
+      `<div class="empty">failed to fetch: ${err.message}</div>`;
+  }
+}
+
+load();
+setInterval(load, 15000); // refresh every 15s
+</script>
+</body>
+</html>
