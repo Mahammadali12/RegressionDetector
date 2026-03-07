@@ -1,0 +1,59 @@
+services:
+
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER:     ${POSTGRES_USER:-drift}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-drift}
+      POSTGRES_DB:       ${POSTGRES_DB:-driftdb}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5433:5433"          # remove in production if API and collector are in same compose network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-drift} -d ${POSTGRES_DB:-driftdb}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      # test: ["CMD-SHELL", "cat /dev/null > /dev/tcp/localhost/8080 || exit 1"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/api/v1/anomalies"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    environment:
+      DRIFT_DETECTOR_CONN_STR:    postgres://${POSTGRES_USER:-drift}:${POSTGRES_PASSWORD:-drift}@postgres:5432/${POSTGRES_DB:-driftdb}?sslmode=disable
+      DRIFT_DETECTOR_API_TOKEN:   ${DRIFT_DETECTOR_API_TOKEN:?API token is required}
+      DRIFT_DETECTOR_BACKEND_URL: http://localhost:8080   # unused by api, kept for config parity
+    ports:
+      - "8080:8080"
+
+  collector:
+    build:
+      context: .
+      dockerfile: Dockerfile.collector
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      DRIFT_DETECTOR_CONN_STR:    ${DRIFT_DETECTOR_CONN_STR:?Collector needs the target DB connection string}
+      DRIFT_DETECTOR_API_TOKEN:   ${DRIFT_DETECTOR_API_TOKEN:?API token is required}
+      DRIFT_DETECTOR_BACKEND_URL: http://api:8080/api/v1/agent/payload
+
+volumes:
+  postgres_data:

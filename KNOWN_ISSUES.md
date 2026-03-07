@@ -38,5 +38,6 @@
 - [ ] Auto-refresh is polling every 15s. Should be SSE or websocket in v2.
 
 ### Infrastructure
-- [ ] No Docker setup. Tests require local Docker daemon.
+- [ ] Collector and monitored DB must be network-adjacent. No documentation for
+      customer network setup yet. Needed before pilot week.
 - [ ] No data retention enforcement. Storage grows unbounded.
