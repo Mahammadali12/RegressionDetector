@@ -70,12 +70,13 @@ func(d* Detector) Analyze(ctx context.Context, row types.PgStatRow) error{
 	if( Z >= 3 && absChange > 50 && percChange > 30){
 		_, err := d.pool.Exec(ctx,
 		`INSERT INTO anomaly_records 
-		(query_id, window_start, window_end, metric, z_score, absolute_change)
-		VALUES($1,$2,$3,$4,$5,$6)`,
-		row.QueryID,row.SnapshotTime,row.SnapshotTime,"mean_exec_time",Z,absChange)
+		(query_id, window_start, window_end, metric, z_score, absolute_change, baseline_mean)
+		VALUES($1,$2,$3,$4,$5,$6,$7)`,
+		row.QueryID,row.SnapshotTime,row.SnapshotTime,"mean_exec_time",Z,absChange,baseline.Mean)
 		if err != nil {
 			return  fmt.Errorf("error inserting anomaly record: %w",err)
 		}
+		fmt.Printf("Anomaly was inserted")
 
 
 	}

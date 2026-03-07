@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"errors"
+	// "fmt"
 	"log"
 	"os/signal"
 	"syscall"
@@ -49,6 +50,7 @@ func (a *Agent) RunOnce(ctx context.Context) error {
 	if err := a.sink.Write(ctx, processed); err != nil {
 		return err
 	}
+	// fmt.Print("records was sent to api\n")
 
 	_ = a.config
 	return nil

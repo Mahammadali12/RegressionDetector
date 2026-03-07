@@ -65,10 +65,13 @@ func HandleIngest(token string, store* store.Store, detector* engine.Detector) h
 		}
 
 		for _, record := range records {
-    		if err := detector.Analyze(r.Context(), record); err != nil {
+			err := detector.Analyze(r.Context(), record)
+    		if err != nil {
     		    log.Printf("analysis failed for query %d: %v", record.QueryID, err)
     		}
 		}
+
+		
 		
 
 	}

@@ -1,4 +1,4 @@
-package sink
+ package sink
 
 import (
 	"bytes"
@@ -23,6 +23,7 @@ func(s HttpSink) Write(ctx context.Context, records []types.PgStatRow) error{
 
 
 	data, err := json.Marshal(records)
+	fmt.Printf("%d records will be sent\n", len(records))
 
 	if err != nil {
 	    return fmt.Errorf("failed to serialize records: %w", err)
