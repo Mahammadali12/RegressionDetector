@@ -1,21 +1,42 @@
 ## Known Issues & Technical Debt
 
 ### Detection
-- Z-score can be unrealistically high (10,000+) when baseline stddev is near-zero.
-  Fix: add minimum stddev floor or require minimum sample variance before flagging.
-  
-- Baseline absorbs regressed values over time, gradually masking sustained regressions.
-  Fix: freeze baseline updates when anomaly is active (needs anomaly state tracking).
+- [ ] Z-score can be unrealistically high when baseline stddev is near-zero.
+      Mitigated by 5% mean floor in effectiveStddev, but floor value is hardcoded.
+      Needs per-project tuning.
 
-- mean_exec_time is a cumulative average — slow calls are diluted by historical fast calls.
-  Fix: track delta between snapshots instead of raw mean_exec_time (major rework, v2).
+- [ ] Baseline accumulates all samples forever — no 14-day rolling window.
+      Long-running stable queries will eventually bury regressions.
+      Fix: evict samples older than 14 days.
+
+- [ ] Baseline absorbs regressed values over time, masking sustained regressions.
+      Fix: freeze baseline updates when anomaly is active.
+
+- [ ] Duplicate anomaly records inserted on every polling cycle during sustained
+      regression. No "active anomaly" state tracking.
+      Tracked by: TestNoDuplicateAnomaliesForSustainedRegression (currently failing).
+
+- [ ] mean_exec_time is a cumulative average — slow calls diluted by history.
+      Fix: track delta between snapshots. Major rework, v2.
+
+- [ ] No p95 detection. Mean hides tail latency regressions.
 
 ### Thresholds
-- absChange > 50ms threshold is hardcoded. Needs per-project configurability.
-- Sample count minimum of 3 is too low for production reliability.
+- [ ] absChange > 50ms and percChange > 30% are hardcoded globally.
+      Needs per-project configurability before pilot.
+
+- [ ] Minimum sample count of 3 is too low for production reliability.
+
+- [ ] Minimum stddev floor hardcoded at 5% of mean.
 
 ### UI
-- Dashboard plots anomaly events only, not continuous time-series.
-  Full timeline view requires GET /api/v1/snapshots/{query_id} endpoint (not yet built).
-- No deploy/migration event overlay (event_records endpoint not yet built).
-- Auto-refresh is polling (15s). Should be websocket or SSE in v2.
+- [ ] Dashboard plots anomaly events only, not continuous time-series.
+      Requires GET /api/v1/snapshots/{query_id} endpoint (not built).
+
+- [ ] No deploy/migration event overlay.
+
+- [ ] Auto-refresh is polling every 15s. Should be SSE or websocket in v2.
+
+### Infrastructure
+- [ ] No Docker setup. Tests require local Docker daemon.
+- [ ] No data retention enforcement. Storage grows unbounded.

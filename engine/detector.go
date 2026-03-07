@@ -20,7 +20,7 @@ func NewDetector(p *pgxpool.Pool) *Detector {
 }
 
 func (d *Detector) Analyze(ctx context.Context, row types.PgStatRow) error {
-	fmt.Printf("Analyzing query %d with mean exec time %f\n", row.QueryID, row.MeanExecTime)
+	// fmt.Printf("Analyzing query %d with mean exec time %f\n", row.QueryID, row.MeanExecTime)
 
 	queryId := row.QueryID
 
@@ -54,6 +54,8 @@ func (d *Detector) Analyze(ctx context.Context, row types.PgStatRow) error {
 	oldStddev := baseline.Stddev
 	oldCount := baseline.SampleCount
 
+	
+
 	newMean := (baseline.Mean*float64(baseline.SampleCount) + row.MeanExecTime) / (float64(baseline.SampleCount) + 1)
 	newVariance := 0.0
 	newStdDev := 0.0
@@ -73,13 +75,18 @@ func (d *Detector) Analyze(ctx context.Context, row types.PgStatRow) error {
     	return err
 	}
 
+	effectiveStddev := oldStddev
+	if effectiveStddev < 0.001 {
+		effectiveStddev = oldMean * 0.05 // 5% of mean as a minimum stddev to avoid false positives in low variance scenarios
+	}
 
 
-	if oldCount < 3 || oldStddev < 0.001 {
+
+	if oldCount < 3 {
 		return nil
 	}
 
-	Z := (row.MeanExecTime - oldMean) / oldStddev
+	Z := (row.MeanExecTime - oldMean) / effectiveStddev
 	absChange := row.MeanExecTime - oldMean
 	percChange := absChange / oldMean * 100
 
