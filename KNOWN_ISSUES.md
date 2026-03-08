@@ -12,9 +12,6 @@
 - [ ] Baseline absorbs regressed values over time, masking sustained regressions.
       Fix: freeze baseline updates when anomaly is active.
 
-- [ ] Duplicate anomaly records inserted on every polling cycle during sustained
-      regression. No "active anomaly" state tracking.
-      Tracked by: TestNoDuplicateAnomaliesForSustainedRegression (currently failing).
 
 - [ ] mean_exec_time is a cumulative average — slow calls diluted by history.
       Fix: track delta between snapshots. Major rework, v2.
