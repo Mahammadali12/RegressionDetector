@@ -90,8 +90,20 @@ func (d *Detector) Analyze(ctx context.Context, row types.PgStatRow) error {
 	absChange := row.MeanExecTime - oldMean
 	percChange := absChange / oldMean * 100
 
-	if Z >= 3 && absChange > 50 && percChange > 30 {
-		_, err := d.pool.Exec(ctx,
+	
+	
+	if Z >= 3 && absChange > 50 && percChange > 30{
+		
+		hasAnomaly, err := d.hasOpenAnomaly(ctx, row)
+		if err != nil {
+			return fmt.Errorf("failed to check for open anomaly: %w", err)
+		}
+		if hasAnomaly {
+			fmt.Printf("Anomaly already exists for query %d in the current window, skipping insertion\n", row.QueryID)
+			return nil
+		}
+
+		_, err = d.pool.Exec(ctx,
 			`INSERT INTO anomaly_records 
 		(query_id, window_start, window_end, metric, z_score, absolute_change, baseline_mean)
 		VALUES($1,$2,$3,$4,$5,$6,$7)`,
@@ -112,5 +124,26 @@ func (d *Detector) updateBaseLine(ctx context.Context, baseline *Baseline) error
 		return fmt.Errorf("failed to update baseline: %w", err)
 	}
 	return nil
+
+}
+
+func (d* Detector) hasOpenAnomaly(ctx context.Context, row types.PgStatRow) (bool, error) {
+	//if this query returns a record, it means that there is already an anomaly recorded for this query in the current window, so we should skip it to avoid duplicates
+	//SELECT query_id FROM anomaly_records
+    //WHERE window_start = window_end AND query_id = $1;
+    var existing int64
+    err := d.pool.QueryRow(ctx, `
+        SELECT query_id FROM anomaly_records
+        WHERE window_start = window_end AND query_id = $1
+        LIMIT 1`, row.QueryID).Scan(&existing)
+    
+    if errors.Is(err, pgx.ErrNoRows) {
+        return false, nil  // no open anomaly
+    }
+    if err != nil {
+        return false, fmt.Errorf("failed to check open anomaly: %w", err)
+    }
+    return true, nil  // record found, anomaly is open
+
 
 }
