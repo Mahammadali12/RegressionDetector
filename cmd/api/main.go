@@ -7,6 +7,7 @@ import (
 	"regressiondetector/api"
 	"regressiondetector/engine"
 	"regressiondetector/internal/collector/config"
+	"regressiondetector/notify"
 	"regressiondetector/store"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -25,7 +26,8 @@ func main(){
 	}
 
 	s := store.NewStore(pool)
-	d := engine.NewDetector(pool)
+	n := notify.NewSlackNotifier(cfg.SlackWebhookURL)
+	d := engine.NewDetector(pool, n)
 	
 
 

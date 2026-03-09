@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"regressiondetector/internal/collector/types"
+	"regressiondetector/notify"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -13,10 +14,11 @@ import (
 
 type Detector struct {
 	pool *pgxpool.Pool
+	notifier notify.Notifier
 }
 
-func NewDetector(p *pgxpool.Pool) *Detector {
-	return &Detector{pool: p}
+func NewDetector(p *pgxpool.Pool, notifier notify.Notifier) *Detector {
+	return &Detector{pool: p, notifier: notifier}
 }
 
 func (d *Detector) Analyze(ctx context.Context, row types.PgStatRow) error {
@@ -112,6 +114,11 @@ func (d *Detector) Analyze(ctx context.Context, row types.PgStatRow) error {
 			return fmt.Errorf("error inserting anomaly record: %w", err)
 		}
 		fmt.Printf("Anomaly was inserted\n")
+		err = d.notifier.Notify(ctx, row.QueryID, Z, absChange, oldMean)
+		if err != nil {
+			return fmt.Errorf("failed to send notification: %w", err)
+		}
+
 	}
 	return nil
 }

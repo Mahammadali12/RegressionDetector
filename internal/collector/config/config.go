@@ -12,6 +12,7 @@ type Config struct {
 	ConnStr string
 	APIToken string
 	BackendURL string
+	SlackWebhookURL string
 }
 
 func Load() (Config, error) {
@@ -21,6 +22,7 @@ func Load() (Config, error) {
 		ConnStr: os.Getenv("DRIFT_DETECTOR_CONN_STR"),
 		APIToken: os.Getenv("DRIFT_DETECTOR_API_TOKEN"),
 		BackendURL: os.Getenv("DRIFT_DETECTOR_BACKEND_URL"),
+		SlackWebhookURL: os.Getenv("DRIFT_DETECTOR_SLACK_WEBHOOK_URL"),
 	}
 
 	if cfg.ConnStr == "" {
@@ -31,6 +33,9 @@ func Load() (Config, error) {
 	}
 	if cfg.BackendURL == "" {
 	    return Config{}, fmt.Errorf("DRIFT_DETECTOR_BACKEND_URL is required")
+	}
+	if cfg.SlackWebhookURL == "" {
+	    return Config{}, fmt.Errorf("DRIFT_DETECTOR_SLACK_WEBHOOK_URL is required")
 	}
 
 	return cfg,nil
