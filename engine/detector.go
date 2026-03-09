@@ -71,7 +71,7 @@ func (d *Detector) Analyze(ctx context.Context, row types.PgStatRow) error {
 	baseline.LastSeen = row.SnapshotTime
 
 
-	if err := d.updateBaseLine(ctx, &baseline); err != nil {
+	if err := d.updateBaseLine(ctx, &baseline); err != nil { //! update baseline with new stats
     	return err
 	}
 
@@ -107,7 +107,7 @@ func (d *Detector) Analyze(ctx context.Context, row types.PgStatRow) error {
 			`INSERT INTO anomaly_records 
 		(query_id, window_start, window_end, metric, z_score, absolute_change, baseline_mean)
 		VALUES($1,$2,$3,$4,$5,$6,$7)`,
-			row.QueryID, row.SnapshotTime, row.SnapshotTime, "mean_exec_time", Z, absChange, baseline.Mean)
+			row.QueryID, row.SnapshotTime, row.SnapshotTime, "mean_exec_time", Z, absChange, oldMean)
 		if err != nil {
 			return fmt.Errorf("error inserting anomaly record: %w", err)
 		}
