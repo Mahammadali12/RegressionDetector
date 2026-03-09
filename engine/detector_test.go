@@ -3,6 +3,7 @@ package engine_test
 import (
 	"context"
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -139,6 +140,30 @@ func seedBaseline(t *testing.T, d *engine.Detector, queryID int64, meanMs float6
 	}
 }
 
+type noopNotifier struct{}
+
+func (noopNotifier) Notify(ctx context.Context, queryID int64, zScore float64, absChange float64, baselineMean float64) error {
+	return nil
+}
+
+type spyNotifier struct {
+	mu    sync.Mutex
+	calls int
+}
+
+func (s *spyNotifier) Notify(ctx context.Context, queryID int64, zScore float64, absChange float64, baselineMean float64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.calls++
+	return nil
+}
+
+func (s *spyNotifier) CallCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.calls
+}
+
 // ── tests ─────────────────────────────────────────────────────────────────────
 
 // TestNoAnomalyBeforeMinimumSampleCount verifies the detector does not fire
@@ -147,7 +172,7 @@ func TestNoAnomalyBeforeMinimumSampleCount(t *testing.T) {
 	pool, cleanup := setupDB(t)
 	defer cleanup()
 
-	d := engine.NewDetector(pool)
+	d := engine.NewDetector(pool, noopNotifier{})
 	ctx := context.Background()
 
 	const queryID = int64(1001)
@@ -171,7 +196,7 @@ func TestNoAnomalyOnStableQuery(t *testing.T) {
 	pool, cleanup := setupDB(t)
 	defer cleanup()
 
-	d := engine.NewDetector(pool)
+	d := engine.NewDetector(pool, noopNotifier{})
 	const queryID = int64(1002)
 
 	// 30 stable samples at ~10ms with tiny natural jitter.
@@ -200,7 +225,7 @@ func TestAnomalyDetectedOnClearRegression(t *testing.T) {
 	pool, cleanup := setupDB(t)
 	defer cleanup()
 
-	d := engine.NewDetector(pool)
+	d := engine.NewDetector(pool, noopNotifier{})
 	const queryID = int64(1003)
 
 	// Build a solid baseline: 20 samples at ~10ms.
@@ -227,7 +252,7 @@ func TestNearZeroStddevDoesNotProduceSpuriousAnomaly(t *testing.T) {
 	pool, cleanup := setupDB(t)
 	defer cleanup()
 
-	d := engine.NewDetector(pool)
+	d := engine.NewDetector(pool, noopNotifier{})
 	const queryID = int64(1004)
 
 	// All samples at exactly the same value — stddev will be 0 or near-zero.
@@ -257,7 +282,7 @@ func TestNoDuplicateAnomaliesForSustainedRegression(t *testing.T) {
 	pool, cleanup := setupDB(t)
 	defer cleanup()
 
-	d := engine.NewDetector(pool)
+	d := engine.NewDetector(pool, noopNotifier{})
 	const queryID = int64(1005)
 
 	// Build stable baseline.
@@ -287,7 +312,7 @@ func TestSmallAbsoluteChangeDoesNotTrigger(t *testing.T) {
 	pool, cleanup := setupDB(t)
 	defer cleanup()
 
-	d := engine.NewDetector(pool)
+	d := engine.NewDetector(pool, noopNotifier{})
 	const queryID = int64(1006)
 
 	// Baseline at 1ms.
@@ -310,7 +335,7 @@ func TestBaselineMeanUpdatesAfterSamples(t *testing.T) {
 	pool, cleanup := setupDB(t)
 	defer cleanup()
 
-	d := engine.NewDetector(pool)
+	d := engine.NewDetector(pool, noopNotifier{})
 	const queryID = int64(1007)
 	ctx := context.Background()
 
@@ -332,5 +357,31 @@ func TestBaselineMeanUpdatesAfterSamples(t *testing.T) {
 	if meanAfter <= meanBefore {
 		t.Errorf("baseline mean did not increase after slow samples: before=%.3f after=%.3f",
 			meanBefore, meanAfter)
+	}
+}
+
+// TestNotifierCalledWhenAnomalyInserted verifies detector invokes notifier
+// when a qualifying anomaly is inserted.
+func TestNotifierCalledWhenAnomalyInserted(t *testing.T) {
+	pool, cleanup := setupDB(t)
+	defer cleanup()
+
+	spy := &spyNotifier{}
+	d := engine.NewDetector(pool, spy)
+	const queryID = int64(1008)
+
+	seedBaseline(t, d, queryID, 10.0, 20)
+
+	ctx := context.Background()
+	if err := d.Analyze(ctx, makeRow(queryID, 200.0)); err != nil {
+		t.Fatalf("regression sample failed: %v", err)
+	}
+
+	if n := countAnomalies(t, pool, queryID); n == 0 {
+		t.Fatal("expected anomaly to be inserted before notifier assertion")
+	}
+
+	if spy.CallCount() != 1 {
+		t.Fatalf("expected notifier to be called once, got %d", spy.CallCount())
 	}
 }

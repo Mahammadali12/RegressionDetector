@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 )
 
@@ -15,12 +16,18 @@ type Notifier interface {
 
 type SlackNotifier struct {
 	// Add fields for Slack configuration, e.g., webhook URL
-	webhookURL string
-	client    *http.Client
+	WebhookURL string
+	Client    *http.Client
 }
 
 func NewSlackNotifier(webhookURL string) *SlackNotifier {
-	return &SlackNotifier{webhookURL: webhookURL, client: &http.Client{}}
+	if webhookURL == "" {
+		// If no webhook URL is provided, return warn and return a no-op notifier
+		log.Println("Warning: No Slack webhook URL provided. Notifications will be disabled.")
+		return &SlackNotifier{WebhookURL: "", Client: &http.Client{}}	
+		
+	}
+	return &SlackNotifier{WebhookURL: webhookURL, Client: &http.Client{}}
 }
 
 func (s *SlackNotifier) Notify(ctx context.Context, queryID int64, zScore float64, absChange float64, baselineMean float64) error {
@@ -43,13 +50,13 @@ func (s *SlackNotifier) Notify(ctx context.Context, queryID int64, zScore float6
 		return fmt.Errorf("failed to marshal Slack payload: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", s.webhookURL, bytes.NewBuffer(payload))
+	req, err := http.NewRequestWithContext(ctx, "POST", s.WebhookURL, bytes.NewBuffer(payload))
 	if err != nil {
 		return fmt.Errorf("failed to create Slack request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := s.client.Do(req)
+	resp, err := s.Client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to send Slack notification: %w", err)
 	}

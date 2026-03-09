@@ -34,9 +34,12 @@ func Load() (Config, error) {
 	if cfg.BackendURL == "" {
 	    return Config{}, fmt.Errorf("DRIFT_DETECTOR_BACKEND_URL is required")
 	}
-	if cfg.SlackWebhookURL == "" {
-	    return Config{}, fmt.Errorf("DRIFT_DETECTOR_SLACK_WEBHOOK_URL is required")
-	}
+
+
+	//! Slack webhook is optional - if not set, notifications will be disabled
+	// if cfg.SlackWebhookURL == "" {
+	//     return Config{}, fmt.Errorf("DRIFT_DETECTOR_SLACK_WEBHOOK_URL is required")
+	// }
 
 	return cfg,nil
 }

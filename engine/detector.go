@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"math"
 	"regressiondetector/internal/collector/types"
 	"regressiondetector/notify"
@@ -13,12 +14,12 @@ import (
 )
 
 type Detector struct {
-	pool *pgxpool.Pool
-	notifier notify.Notifier
+	Pool *pgxpool.Pool
+	Notifier notify.Notifier
 }
 
 func NewDetector(p *pgxpool.Pool, notifier notify.Notifier) *Detector {
-	return &Detector{pool: p, notifier: notifier}
+	return &Detector{Pool: p, Notifier: notifier}
 }
 
 func (d *Detector) Analyze(ctx context.Context, row types.PgStatRow) error {
@@ -26,7 +27,7 @@ func (d *Detector) Analyze(ctx context.Context, row types.PgStatRow) error {
 
 	queryId := row.QueryID
 
-	r := d.pool.QueryRow(ctx, "SELECT query_id, mean, stddev, sample_count, last_seen FROM baseline_stats WHERE query_id = $1;", queryId)
+	r := d.Pool.QueryRow(ctx, "SELECT query_id, mean, stddev, sample_count, last_seen FROM baseline_stats WHERE query_id = $1;", queryId)
 
 	var baseline Baseline
 	err := r.Scan(
@@ -38,7 +39,7 @@ func (d *Detector) Analyze(ctx context.Context, row types.PgStatRow) error {
 	)
 
 	if errors.Is(err, pgx.ErrNoRows) { //! new baseline record
-		_, err := d.pool.Exec(ctx,
+		_, err := d.Pool.Exec(ctx,
 			`INSERT INTO baseline_stats (query_id, mean, stddev, sample_count, last_seen)
         VALUES ($1, $2, $3, $4, $5)`,
 			row.QueryID, row.MeanExecTime, 0, 1, row.SnapshotTime)
@@ -105,7 +106,7 @@ func (d *Detector) Analyze(ctx context.Context, row types.PgStatRow) error {
 			return nil
 		}
 
-		_, err = d.pool.Exec(ctx,
+		_, err = d.Pool.Exec(ctx,
 			`INSERT INTO anomaly_records 
 		(query_id, window_start, window_end, metric, z_score, absolute_change, baseline_mean)
 		VALUES($1,$2,$3,$4,$5,$6,$7)`,
@@ -114,9 +115,11 @@ func (d *Detector) Analyze(ctx context.Context, row types.PgStatRow) error {
 			return fmt.Errorf("error inserting anomaly record: %w", err)
 		}
 		fmt.Printf("Anomaly was inserted\n")
-		err = d.notifier.Notify(ctx, row.QueryID, Z, absChange, oldMean)
+
+		err = d.Notifier.Notify(ctx, row.QueryID, Z, absChange, oldMean)
 		if err != nil {
-			return fmt.Errorf("failed to send notification: %w", err)
+			// return fmt.Errorf("failed to send notification: %w", err)
+			log.Printf("Failed to send notification: %v\n", err)
 		}
 
 	}
@@ -124,7 +127,7 @@ func (d *Detector) Analyze(ctx context.Context, row types.PgStatRow) error {
 }
 
 func (d *Detector) updateBaseLine(ctx context.Context, baseline *Baseline) error {
-	_, err := d.pool.Exec(ctx,
+	_, err := d.Pool.Exec(ctx,
 		`UPDATE baseline_stats SET mean = $1, stddev = $2, sample_count = $3, last_seen = $4 WHERE query_id = $5`,
 		baseline.Mean, baseline.Stddev, baseline.SampleCount, baseline.LastSeen, baseline.QueryID)
 	if err != nil {
@@ -139,7 +142,7 @@ func (d* Detector) hasOpenAnomaly(ctx context.Context, row types.PgStatRow) (boo
 	//SELECT query_id FROM anomaly_records
     //WHERE window_start = window_end AND query_id = $1;
     var existing int64
-    err := d.pool.QueryRow(ctx, `
+    err := d.Pool.QueryRow(ctx, `
         SELECT query_id FROM anomaly_records
         WHERE window_start = window_end AND query_id = $1
         LIMIT 1`, row.QueryID).Scan(&existing)
