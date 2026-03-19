@@ -60,7 +60,7 @@ func HandleIngest(token string, store* store.Store, detector* engine.Detector) h
 
 		err = store.Save(r.Context(),records)
 		if err != nil {
-		    http.Error(w, "failed to save records", http.StatusBadRequest)			
+		    http.Error(w, "failed to save records", http.StatusInternalServerError)			
 			return 
 		}
 
