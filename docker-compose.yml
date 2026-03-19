@@ -37,6 +37,7 @@ services:
       DRIFT_DETECTOR_CONN_STR:    postgres://${POSTGRES_USER:-drift}:${POSTGRES_PASSWORD:-drift}@postgres:5432/${POSTGRES_DB:-driftdb}?sslmode=disable
       DRIFT_DETECTOR_API_TOKEN:   ${DRIFT_DETECTOR_API_TOKEN:?API token is required}
       DRIFT_DETECTOR_BACKEND_URL: http://localhost:8080   # unused by api, kept for config parity
+      DRIFT_DETECTOR_SLACK_WEBHOOK_URL: ${DRIFT_DETECTOR_SLACK_WEBHOOK_URL}
     ports:
       - "8080:8080"
 
@@ -54,6 +55,7 @@ services:
       DRIFT_DETECTOR_CONN_STR:    ${DRIFT_DETECTOR_CONN_STR:?Collector needs the target DB connection string}
       DRIFT_DETECTOR_API_TOKEN:   ${DRIFT_DETECTOR_API_TOKEN:?API token is required}
       DRIFT_DETECTOR_BACKEND_URL: http://api:8080/api/v1/agent/payload
+      DRIFT_DETECTOR_SLACK_WEBHOOK_URL: ${DRIFT_DETECTOR_SLACK_WEBHOOK_URL}
 
 volumes:
   postgres_data:
