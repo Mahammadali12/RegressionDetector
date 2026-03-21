@@ -13,6 +13,7 @@ type Config struct {
 	APIToken string
 	BackendURL string
 	SlackWebhookURL string
+	GithubWebHookSecret string
 }
 
 func Load() (Config, error) {
@@ -23,6 +24,7 @@ func Load() (Config, error) {
 		APIToken: os.Getenv("DRIFT_DETECTOR_API_TOKEN"),
 		BackendURL: os.Getenv("DRIFT_DETECTOR_BACKEND_URL"),
 		SlackWebhookURL: os.Getenv("DRIFT_DETECTOR_SLACK_WEBHOOK_URL"),
+		GithubWebHookSecret: os.Getenv("DRIFT_DETECTOR_GITHUB_WEBHOOK_SECRET"),
 	}
 
 	if cfg.ConnStr == "" {
@@ -41,5 +43,9 @@ func Load() (Config, error) {
 	//     return Config{}, fmt.Errorf("DRIFT_DETECTOR_SLACK_WEBHOOK_URL is required")
 	// }
 
+	//! Github webhook is optional - if not set, notifications will be disabled
+	// if cfg.GithubWebHookSecret == "" {
+	//     return Config{}, fmt.Errorf("DRIFT_DETECTOR_GITHUB_WEBHOOK_SECRET is required")
+	// }
 	return cfg,nil
 }

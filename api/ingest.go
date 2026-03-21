@@ -71,9 +71,6 @@ func HandleIngest(token string, store* store.Store, detector* engine.Detector) h
     		}
 		}
 
-		
-		
-
 	}
 	
 }

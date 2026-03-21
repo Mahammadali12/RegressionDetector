@@ -36,3 +36,15 @@ CREATE TABLE IF NOT EXISTS snapshot_records (
     temp_blks_read   BIGINT,
     PRIMARY KEY (query_id, snapshot_time)
 );
+
+CREATE TABLE IF NOT EXISTS event_records (
+    id             BIGSERIAL PRIMARY KEY,
+    received_at    TIMESTAMPTZ NOT NULL,
+    repo           TEXT NOT NULL,
+    branch         TEXT NOT NULL,
+    commit_sha     TEXT NOT NULL,
+    commit_message TEXT,
+    pusher         TEXT NOT NULL
+);
+
+CREATE INDEX ON event_records (received_at);
